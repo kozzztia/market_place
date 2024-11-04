@@ -23,9 +23,4 @@ app.get('/api/store', async (req, res) => {
     }
 });
 
-
-// const PORT = process.env.PORT || 5555;
-// app.listen(PORT, () => {
-//     console.log(`Server listening on port ${PORT}`);
-// });
 module.exports.handler = serverless(app);
