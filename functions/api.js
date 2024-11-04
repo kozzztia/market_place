@@ -23,4 +23,5 @@ app.get('/api/store', async (req, res) => {
     }
 });
 
+
 module.exports.handler = serverless(app);
