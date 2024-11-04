@@ -7,15 +7,16 @@ exports.handler = async (event, context) => {
     try {
         if (path.endsWith('/users')) {
             response = await axios.get('https://jsonplaceholder.typicode.com/users');
-        } else if (path.endsWith('/store')) {
+        } else if (path.endsWith('/todos')) {
             response = await axios.get('https://jsonplaceholder.typicode.com/todos');
+        } else if (path.endsWith('/posts')) {
+            response = await axios.get('https://jsonplaceholder.typicode.com/posts');
         } else {
             return {
                 statusCode: 404,
                 body: JSON.stringify({ error: 'Endpoint not found' })
             };
         }
-
         return {
             statusCode: 200,
             body: JSON.stringify(response.data)
