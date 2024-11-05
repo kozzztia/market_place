@@ -1,31 +1,42 @@
-const axios = require("axios");
+const { Client } = require('pg');
+const key = process.env.NEON_PASSWORD;
 
 exports.handler = async (event, context) => {
     const path = event.path;
-    let response;
+
+    const dbConfig = {
+        connectionString: `postgresql://items_owner:${key}@ep-round-frost-a813d3a2.eastus2.azure.neon.tech/items?sslmode=require`,
+        ssl: { rejectUnauthorized: false },
+    };
+
+    const client = new Client(dbConfig);
 
     try {
-        if (path.endsWith('/users')) {
-            response = await axios.get('https://jsonplaceholder.typicode.com/users');
-        } else if (path.endsWith('/todos')) {
-            response = await axios.get('https://jsonplaceholder.typicode.com/todos');
-        } else if (path.endsWith('/posts')) {
-            response = await axios.get('https://jsonplaceholder.typicode.com/posts');
+        await client.connect();
+
+        let query;
+        if (path.endsWith('/items')) {
+            query = 'SELECT * FROM items'; // Пример запроса к таблице items
         } else {
             return {
                 statusCode: 404,
                 body: JSON.stringify({ error: 'Endpoint not found' })
             };
         }
+
+        const res = await client.query(query);
+        
         return {
             statusCode: 200,
-            body: JSON.stringify(response.data)
+            body: JSON.stringify(res.rows),
         };
     } catch (error) {
-        console.error('Error fetching data:', error);
+        console.error('Database query error:', error);
         return {
             statusCode: 500,
-            body: JSON.stringify({ error: 'Error fetching data' })
+            body: JSON.stringify({ error: 'Database query error' }),
         };
+    } finally {
+        await client.end();
     }
 };
