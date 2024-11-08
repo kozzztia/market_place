@@ -1,8 +1,21 @@
 import { Client } from 'pg';
+import multer from 'multer';
 import fs from 'fs';
 import path from 'path';
 
 const key = process.env.NEON_PASSWORD;
+
+// Настройка для загрузки изображений в папку public/images
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, path.join(__dirname, 'public', 'images'));
+    },
+    filename: function (req, file, cb) {
+        cb(null, Date.now() + '-' + file.originalname);  // Генерация уникального имени для файла
+    }
+});
+
+const upload = multer({ storage: storage });
 
 export async function handler(event, context) {
     const pathUrl = event.path;
@@ -18,10 +31,10 @@ export async function handler(event, context) {
     try {
         await client.connect();
 
-        let query;
-
         if (method === 'GET' && pathUrl.endsWith('/items')) {
+            // Получение элементов
             const id = event.queryStringParameters?.id;
+            let query;
             if (id) {
                 query = {
                     text: 'SELECT * FROM items WHERE id = $1',
@@ -30,52 +43,57 @@ export async function handler(event, context) {
             } else {
                 query = 'SELECT * FROM items';
             }
+
             const res = await client.query(query);
             return {
                 statusCode: 200,
                 body: JSON.stringify(res.rows),
             };
         } else if (method === 'POST' && pathUrl.endsWith('/items')) {
-            // Парсим form-data вручную без использования потоков
-            const formData = JSON.parse(event.body);  // Парсим тело запроса как JSON
+            // Обработка запроса с изображением
+            // Вызов multer для обработки формы с файлом
+            upload.single('image')(event, context, async (err) => {
+                if (err) {
+                    return {
+                        statusCode: 400,
+                        body: JSON.stringify({ error: 'File upload error', details: err.message }),
+                    };
+                }
 
-            const { item, cost, imageBase64 } = formData;
+                const { item, cost } = event.body;  // Получаем текстовые поля из тела запроса
+                const file = event.file;  // Получаем информацию о файле, который был загружен
 
-            if (!item || !cost || !imageBase64) {
-                return {
-                    statusCode: 400,
-                    body: JSON.stringify({ error: 'Missing required fields: item, cost or image' }),
+                // Проверка обязательных полей
+                if (!item || !cost || !file) {
+                    return {
+                        statusCode: 400,
+                        body: JSON.stringify({ error: 'Missing required fields: item, cost or image' }),
+                    };
+                }
+
+                // Путь к изображению
+                const link = `https://funny-fudge-ddda7b.netlify.app/public/images/${file.filename}`;
+
+                // Сохраняем данные в базе данных
+                const query = {
+                    text: 'INSERT INTO items (item, cost, link) VALUES ($1, $2, $3) RETURNING *',
+                    values: [item, cost, link], // Сохраняем путь к изображению
                 };
-            }
 
-            // Сохраняем изображение на сервер
-            const imageBuffer = Buffer.from(imageBase64, 'base64');
-            const imagePath = path.join(process.cwd(), 'public', 'images', `${Date.now()}.jpg`);
-
-            fs.writeFileSync(imagePath, imageBuffer);
-
-            // Путь к изображению
-            const link = `https://funny-fudge-ddda7b.netlify.app/images/${path.basename(imagePath)}`;
-
-            // Сохраняем данные в базе данных
-            query = {
-                text: 'INSERT INTO items (item, cost, link) VALUES ($1, $2, $3) RETURNING *',
-                values: [item, cost, link],
-            };
-
-            try {
-                const res = await client.query(query);
-                return {
-                    statusCode: 201,
-                    body: JSON.stringify(res.rows[0]),
-                };
-            } catch (dbError) {
-                console.error('Database error:', dbError);
-                return {
-                    statusCode: 500,
-                    body: JSON.stringify({ error: 'Database query error', details: dbError.message }),
-                };
-            }
+                try {
+                    const res = await client.query(query);
+                    return {
+                        statusCode: 201,
+                        body: JSON.stringify(res.rows[0]),
+                    };
+                } catch (dbError) {
+                    console.error('Database error:', dbError);
+                    return {
+                        statusCode: 500,
+                        body: JSON.stringify({ error: 'Database query error', details: dbError.message }),
+                    };
+                }
+            });
         } else {
             return {
                 statusCode: 404,
