@@ -38,6 +38,8 @@ export async function handler(event, context) {
         } else if (method === 'POST' && path.endsWith('/items')) {
             // Создание нового элемента
             const { item, cost, link } = JSON.parse(event.body);
+
+            // Проверка обязательных полей
             if (!item || !cost) {
                 return {
                     statusCode: 400,
@@ -47,7 +49,7 @@ export async function handler(event, context) {
 
             query = {
                 text: 'INSERT INTO items (item, cost, link) VALUES ($1, $2, $3) RETURNING *',
-                values: [item, cost, link || null],
+                values: [item, cost, link || null], // Если `link` отсутствует, используем `null`
             };
 
             const res = await client.query(query);
