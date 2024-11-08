@@ -1,5 +1,5 @@
 import { Client } from 'pg';
-import { IncomingForm } from 'formidable';  // Правильный импорт IncomingForm
+import formidable from 'formidable';
 import path from 'path';
 
 const key = process.env.NEON_PASSWORD;
@@ -21,7 +21,6 @@ export async function handler(event, context) {
         let query;
 
         if (method === 'GET' && pathUrl.endsWith('/items')) {
-            // Получение элементов по id или всех элементов
             const id = event.queryStringParameters?.id;
             if (id) {
                 query = {
@@ -38,10 +37,9 @@ export async function handler(event, context) {
             };
         } else if (method === 'POST' && pathUrl.endsWith('/items')) {
             // Обработка запроса с изображением
-            const form = new IncomingForm();  // Используем IncomingForm из правильного импорта
+            const form = new formidable.IncomingForm();
             form.uploadDir = path.join(process.cwd(), 'public', 'images');
             form.keepExtensions = true;
-
             form.parse(event, async (err, fields, files) => {
                 if (err) {
                     return {
@@ -53,7 +51,6 @@ export async function handler(event, context) {
                 const { item, cost } = fields;
                 const file = files.image;
 
-                // Проверка обязательных полей
                 if (!item || !cost || !file) {
                     return {
                         statusCode: 400,
@@ -100,3 +97,4 @@ export async function handler(event, context) {
         await client.end();
     }
 }
+
