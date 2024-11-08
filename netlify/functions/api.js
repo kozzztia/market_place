@@ -1,7 +1,7 @@
-const { Client } = require('pg');
+import { Client } from 'pg';
 const key = process.env.NEON_PASSWORD;
 
-exports.handler = async (event, context) => {
+export async function handler(event, context) {
     const path = event.path;
     const method = event.httpMethod;
 
@@ -37,17 +37,17 @@ exports.handler = async (event, context) => {
             };
         } else if (method === 'POST' && path.endsWith('/items')) {
             // Создание нового элемента
-            const { name, cost, imageUrl } = JSON.parse(event.body);
-            if (!name || !cost) {
+            const { item, cost, link } = JSON.parse(event.body);
+            if (!item || !cost) {
                 return {
                     statusCode: 400,
-                    body: JSON.stringify({ error: 'Missing required fields: name and cost' }),
+                    body: JSON.stringify({ error: 'Missing required fields: item and cost' }),
                 };
             }
 
             query = {
-                text: 'INSERT INTO items (name, cost, image_url) VALUES ($1, $2, $3) RETURNING *',
-                values: [name, cost, imageUrl || null],
+                text: 'INSERT INTO items (item, cost, link) VALUES ($1, $2, $3) RETURNING *',
+                values: [item, cost, link || null],
             };
 
             const res = await client.query(query);
@@ -70,4 +70,4 @@ exports.handler = async (event, context) => {
     } finally {
         await client.end();
     }
-};
+}
