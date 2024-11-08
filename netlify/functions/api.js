@@ -1,8 +1,12 @@
 import { Client } from 'pg';
+import formidable from 'formidable';
+import fs from 'fs';
+import path from 'path';
+
 const key = process.env.NEON_PASSWORD;
 
 export async function handler(event, context) {
-    const path = event.path;
+    const pathUrl = event.path;
     const method = event.httpMethod;
 
     const dbConfig = {
@@ -17,7 +21,7 @@ export async function handler(event, context) {
 
         let query;
 
-        if (method === 'GET' && path.endsWith('/items')) {
+        if (method === 'GET' && pathUrl.endsWith('/items')) {
             // Получение элементов по id или всех элементов
             const id = event.queryStringParameters?.id;
             if (id) {
@@ -35,28 +39,46 @@ export async function handler(event, context) {
                 statusCode: 200,
                 body: JSON.stringify(res.rows),
             };
-        } else if (method === 'POST' && path.endsWith('/items')) {
-            // Создание нового элемента
-            const { item, cost, link } = JSON.parse(event.body);
+        } else if (method === 'POST' && pathUrl.endsWith('/items')) {
+            // Обработка запроса с изображением
+            const form = new formidable.IncomingForm();
+            form.uploadDir = path.join(__dirname, 'public', 'images');  // Указываем папку для сохранения изображений
+            form.keepExtensions = true;  // Сохраняем расширения файлов
 
-            // Проверка обязательных полей
-            if (!item || !cost) {
-                return {
-                    statusCode: 400,
-                    body: JSON.stringify({ error: 'Missing required fields: item and cost' }),
+            form.parse(event, async (err, fields, files) => {
+                if (err) {
+                    return {
+                        statusCode: 400,
+                        body: JSON.stringify({ error: 'File upload error' }),
+                    };
+                }
+
+                const { item, cost } = fields;
+                const file = files.image;
+
+                // Проверка обязательных полей
+                if (!item || !cost || !file) {
+                    return {
+                        statusCode: 400,
+                        body: JSON.stringify({ error: 'Missing required fields: item, cost or image' }),
+                    };
+                }
+
+                // Путь к изображению
+                const imagePath = `https://funny-fudge-ddda7b.netlify.app/public/images/${file.newFilename}`;
+
+                // Сохраняем данные в базе данных
+                query = {
+                    text: 'INSERT INTO items (item, cost, link) VALUES ($1, $2, $3) RETURNING *',
+                    values: [item, cost, imagePath], // Сохраняем путь к изображению
                 };
-            }
 
-            query = {
-                text: 'INSERT INTO items (item, cost, link) VALUES ($1, $2, $3) RETURNING *',
-                values: [item, cost, link || null], // Если `link` отсутствует, используем `null`
-            };
-
-            const res = await client.query(query);
-            return {
-                statusCode: 201,
-                body: JSON.stringify(res.rows[0]),
-            };
+                const res = await client.query(query);
+                return {
+                    statusCode: 201,
+                    body: JSON.stringify(res.rows[0]),
+                };
+            });
         } else {
             return {
                 statusCode: 404,
