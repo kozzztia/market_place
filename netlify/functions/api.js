@@ -1,5 +1,5 @@
 import { Client } from 'pg';
-import * as Busboy from 'busboy';  // Исправленный импорт
+const Busboy = require('busboy'); // Исправленный импорт
 import fs from 'fs';
 import path from 'path';
 
