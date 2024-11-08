@@ -1,21 +1,9 @@
 import { Client } from 'pg';
-import multer from 'multer';
+import Busboy from 'busboy';
 import fs from 'fs';
 import path from 'path';
 
 const key = process.env.NEON_PASSWORD;
-
-// Настройка для загрузки изображений в папку public/images
-const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        cb(null, path.join(__dirname, 'public', 'images'));
-    },
-    filename: function (req, file, cb) {
-        cb(null, Date.now() + '-' + file.originalname);  // Генерация уникального имени для файла
-    }
-});
-
-const upload = multer({ storage: storage });
 
 export async function handler(event, context) {
     const pathUrl = event.path;
@@ -50,34 +38,46 @@ export async function handler(event, context) {
                 body: JSON.stringify(res.rows),
             };
         } else if (method === 'POST' && pathUrl.endsWith('/items')) {
-            // Обработка запроса с изображением
-            // Вызов multer для обработки формы с файлом
-            upload.single('image')(event, context, async (err) => {
-                if (err) {
-                    return {
-                        statusCode: 400,
-                        body: JSON.stringify({ error: 'File upload error', details: err.message }),
-                    };
+            // Обработка multipart запроса с помощью busboy
+            const busboy = new Busboy({ headers: event.headers });
+
+            let item = '';
+            let cost = '';
+            let imageFile = null;
+
+            busboy.on('field', (name, value) => {
+                if (name === 'item') {
+                    item = value;
+                } else if (name === 'cost') {
+                    cost = value;
                 }
+            });
 
-                const { item, cost } = event.body;  // Получаем текстовые поля из тела запроса
-                const file = event.file;  // Получаем информацию о файле, который был загружен
+            busboy.on('file', (fieldname, file, filename, encoding, mimetype) => {
+                // Путь к файлу на сервере
+                const filePath = path.join(__dirname, 'public', 'images', Date.now() + '-' + filename);
+                const writeStream = fs.createWriteStream(filePath);
+                file.pipe(writeStream);
 
-                // Проверка обязательных полей
-                if (!item || !cost || !file) {
+                imageFile = filePath;  // Путь к изображению
+            });
+
+            busboy.on('finish', async () => {
+                // После завершения обработки данных запроса
+                if (!item || !cost || !imageFile) {
                     return {
                         statusCode: 400,
                         body: JSON.stringify({ error: 'Missing required fields: item, cost or image' }),
                     };
                 }
 
-                // Путь к изображению
-                const link = `https://funny-fudge-ddda7b.netlify.app/public/images/${file.filename}`;
+                // Ссылка на изображение
+                const link = `https://funny-fudge-ddda7b.netlify.app/public/images/${path.basename(imageFile)}`;
 
                 // Сохраняем данные в базе данных
                 const query = {
                     text: 'INSERT INTO items (item, cost, link) VALUES ($1, $2, $3) RETURNING *',
-                    values: [item, cost, link], // Сохраняем путь к изображению
+                    values: [item, cost, link],
                 };
 
                 try {
@@ -94,6 +94,8 @@ export async function handler(event, context) {
                     };
                 }
             });
+
+            busboy.end(event.body);  // Завершаем обработку запроса
         } else {
             return {
                 statusCode: 404,
