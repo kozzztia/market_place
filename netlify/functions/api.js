@@ -65,12 +65,12 @@ export async function handler(event, context) {
                 }
 
                 // Путь к изображению
-                const imagePath = `https://funny-fudge-ddda7b.netlify.app/public/images/${file.newFilename}`;
+                const link = `https://funny-fudge-ddda7b.netlify.app/public/images/${file.newFilename}`;
 
                 // Сохраняем данные в базе данных
                 query = {
                     text: 'INSERT INTO items (item, cost, link) VALUES ($1, $2, $3) RETURNING *',
-                    values: [item, cost, imagePath], // Сохраняем путь к изображению
+                    values: [item, cost, link], // Сохраняем путь к изображению
                 };
 
                 const res = await client.query(query);
