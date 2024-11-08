@@ -1,5 +1,5 @@
 import { Client } from 'pg';
-import formidable from 'formidable';
+import { IncomingForm } from 'formidable';  // Правильный импорт IncomingForm
 import path from 'path';
 
 const key = process.env.NEON_PASSWORD;
@@ -38,9 +38,9 @@ export async function handler(event, context) {
             };
         } else if (method === 'POST' && pathUrl.endsWith('/items')) {
             // Обработка запроса с изображением
-            const form = new formidable.IncomingForm();
-            form.uploadDir = path.join(process.cwd(), 'public', 'images'); // Используем process.cwd() для указания корня проекта
-            form.keepExtensions = true;  // Сохраняем расширения файлов
+            const form = new IncomingForm();  // Используем IncomingForm из правильного импорта
+            form.uploadDir = path.join(process.cwd(), 'public', 'images');
+            form.keepExtensions = true;
 
             form.parse(event, async (err, fields, files) => {
                 if (err) {
