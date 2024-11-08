@@ -1,5 +1,5 @@
 import { Client } from 'pg';
-import formidable from 'formidable';
+import fs from 'fs';
 import path from 'path';
 
 const key = process.env.NEON_PASSWORD;
@@ -36,51 +36,46 @@ export async function handler(event, context) {
                 body: JSON.stringify(res.rows),
             };
         } else if (method === 'POST' && pathUrl.endsWith('/items')) {
-            // Обработка запроса с изображением
-            const form = new formidable.IncomingForm();
-            form.uploadDir = path.join(process.cwd(), 'public', 'images');
-            form.keepExtensions = true;
-            form.parse(event, async (err, fields, files) => {
-                if (err) {
-                    return {
-                        statusCode: 400,
-                        body: JSON.stringify({ error: 'File upload error' }),
-                    };
-                }
+            // Парсим form-data вручную без использования потоков
+            const formData = JSON.parse(event.body);  // Парсим тело запроса как JSON
 
-                const { item, cost } = fields;
-                const file = files.image;
+            const { item, cost, imageBase64 } = formData;
 
-                if (!item || !cost || !file) {
-                    return {
-                        statusCode: 400,
-                        body: JSON.stringify({ error: 'Missing required fields: item, cost or image' }),
-                    };
-                }
-
-                // Путь к изображению
-                const link = `https://funny-fudge-ddda7b.netlify.app/images/${file.newFilename}`;
-
-                // Сохраняем данные в базе данных
-                query = {
-                    text: 'INSERT INTO items (item, cost, link) VALUES ($1, $2, $3) RETURNING *',
-                    values: [item, cost, link],
+            if (!item || !cost || !imageBase64) {
+                return {
+                    statusCode: 400,
+                    body: JSON.stringify({ error: 'Missing required fields: item, cost or image' }),
                 };
+            }
 
-                try {
-                    const res = await client.query(query);
-                    return {
-                        statusCode: 201,
-                        body: JSON.stringify(res.rows[0]),
-                    };
-                } catch (dbError) {
-                    console.error('Database error:', dbError);
-                    return {
-                        statusCode: 500,
-                        body: JSON.stringify({ error: 'Database query error', details: dbError.message }),
-                    };
-                }
-            });
+            // Сохраняем изображение на сервер
+            const imageBuffer = Buffer.from(imageBase64, 'base64');
+            const imagePath = path.join(process.cwd(), 'public', 'images', `${Date.now()}.jpg`);
+
+            fs.writeFileSync(imagePath, imageBuffer);
+
+            // Путь к изображению
+            const link = `https://funny-fudge-ddda7b.netlify.app/images/${path.basename(imagePath)}`;
+
+            // Сохраняем данные в базе данных
+            query = {
+                text: 'INSERT INTO items (item, cost, link) VALUES ($1, $2, $3) RETURNING *',
+                values: [item, cost, link],
+            };
+
+            try {
+                const res = await client.query(query);
+                return {
+                    statusCode: 201,
+                    body: JSON.stringify(res.rows[0]),
+                };
+            } catch (dbError) {
+                console.error('Database error:', dbError);
+                return {
+                    statusCode: 500,
+                    body: JSON.stringify({ error: 'Database query error', details: dbError.message }),
+                };
+            }
         } else {
             return {
                 statusCode: 404,
@@ -97,4 +92,3 @@ export async function handler(event, context) {
         await client.end();
     }
 }
-
