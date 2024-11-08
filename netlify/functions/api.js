@@ -1,5 +1,5 @@
 import { Client } from 'pg';
-import Busboy from 'busboy';
+import * as Busboy from 'busboy';  // Исправленный импорт
 import fs from 'fs';
 import path from 'path';
 
