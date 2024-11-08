@@ -1,6 +1,5 @@
 import { Client } from 'pg';
 import formidable from 'formidable';
-import fs from 'fs';
 import path from 'path';
 
 const key = process.env.NEON_PASSWORD;
@@ -25,13 +24,11 @@ export async function handler(event, context) {
             // Получение элементов по id или всех элементов
             const id = event.queryStringParameters?.id;
             if (id) {
-                // Если передан id, извлекаем конкретный элемент
                 query = {
                     text: 'SELECT * FROM items WHERE id = $1',
                     values: [id],
                 };
             } else {
-                // Извлечение всех элементов
                 query = 'SELECT * FROM items';
             }
             const res = await client.query(query);
@@ -42,7 +39,7 @@ export async function handler(event, context) {
         } else if (method === 'POST' && pathUrl.endsWith('/items')) {
             // Обработка запроса с изображением
             const form = new formidable.IncomingForm();
-            form.uploadDir = path.join(__dirname, 'public', 'images');  // Указываем папку для сохранения изображений
+            form.uploadDir = path.join(process.cwd(), 'public', 'images'); // Используем process.cwd() для указания корня проекта
             form.keepExtensions = true;  // Сохраняем расширения файлов
 
             form.parse(event, async (err, fields, files) => {
@@ -65,19 +62,27 @@ export async function handler(event, context) {
                 }
 
                 // Путь к изображению
-                const link = `https://funny-fudge-ddda7b.netlify.app/public/images/${file.newFilename}`;
+                const link = `https://funny-fudge-ddda7b.netlify.app/images/${file.newFilename}`;
 
                 // Сохраняем данные в базе данных
                 query = {
                     text: 'INSERT INTO items (item, cost, link) VALUES ($1, $2, $3) RETURNING *',
-                    values: [item, cost, link], // Сохраняем путь к изображению
+                    values: [item, cost, link],
                 };
 
-                const res = await client.query(query);
-                return {
-                    statusCode: 201,
-                    body: JSON.stringify(res.rows[0]),
-                };
+                try {
+                    const res = await client.query(query);
+                    return {
+                        statusCode: 201,
+                        body: JSON.stringify(res.rows[0]),
+                    };
+                } catch (dbError) {
+                    console.error('Database error:', dbError);
+                    return {
+                        statusCode: 500,
+                        body: JSON.stringify({ error: 'Database query error', details: dbError.message }),
+                    };
+                }
             });
         } else {
             return {
@@ -86,10 +91,10 @@ export async function handler(event, context) {
             };
         }
     } catch (error) {
-        console.error('Database query error:', error);
+        console.error('Server error:', error);
         return {
             statusCode: 500,
-            body: JSON.stringify({ error: 'Database query error' }),
+            body: JSON.stringify({ error: 'Server error', details: error.message }),
         };
     } finally {
         await client.end();
