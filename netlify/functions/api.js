@@ -1,25 +1,8 @@
 import { Client } from 'pg';
-import multer from 'multer';
 import fs from 'fs';
 import path from 'path';
 
 const key = process.env.NEON_PASSWORD;
-
-const upload = multer({
-    storage: multer.diskStorage({
-        destination: (req, file, cb) => {
-            const uploadDir = path.join(__dirname, 'public', 'images');
-            if (!fs.existsSync(uploadDir)) {
-                fs.mkdirSync(uploadDir, { recursive: true });
-            }
-            cb(null, uploadDir);
-        },
-        filename: (req, file, cb) => {
-            const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-            cb(null, `${file.fieldname}-${uniqueSuffix}-${file.originalname}`);
-        }
-    })
-});
 
 export async function handler(event, context) {
     const pathUrl = event.path;
@@ -37,7 +20,7 @@ export async function handler(event, context) {
 
         let query;
 
-        // 1. GET /items: Получение всех элементов или элемента по ID
+        // 1. GET /items
         if (method === 'GET' && pathUrl.endsWith('/items')) {
             const id = event.queryStringParameters?.id;
             if (id) {
@@ -55,7 +38,7 @@ export async function handler(event, context) {
             };
         }
 
-        // 2. POST /items: Создание нового элемента
+        // 2. POST /items
         if (method === 'POST' && pathUrl.endsWith('/items')) {
             const { item, cost } = JSON.parse(event.body);
 
@@ -66,7 +49,7 @@ export async function handler(event, context) {
                 };
             }
 
-            const link = `${pathUrl}/public/images/${item}`; // Пример ссылки на изображение
+            const link = `https://funny-fudge-ddda7b.netlify.app/public/images/${item}`;
 
             query = {
                 text: 'INSERT INTO items (item, cost, link) VALUES ($1, $2, $3) RETURNING *',
@@ -80,34 +63,33 @@ export async function handler(event, context) {
             };
         }
 
-        // 3. POST /upload-image: Загрузка изображения с использованием multer
+        // 3. POST /upload-image
         if (method === 'POST' && pathUrl.endsWith('/upload-image')) {
-            return new Promise((resolve, reject) => {
-                const fakeRequest = {
-                    headers: event.headers,
-                    body: Buffer.from(event.body, 'base64'), // Преобразуем тело запроса в буфер
+            const boundary = event.headers['content-type'].split('boundary=')[1];
+            const bodyBuffer = Buffer.from(event.body, 'base64');
+            
+            // Простая обработка multipart/form-data
+            const parts = bodyBuffer.toString().split(`--${boundary}`);
+            const filePart = parts.find(part => part.includes('Content-Disposition: form-data; name="image";'));
+            
+            if (!filePart) {
+                return {
+                    statusCode: 400,
+                    body: JSON.stringify({ error: 'No image file found in request' }),
                 };
+            }
 
-                const fakeResponse = {
-                    statusCode: 200,
-                    setHeader: () => {},
-                    end: (message) => {
-                        resolve({
-                            statusCode: 200,
-                            body: message,
-                        });
-                    },
-                };
+            const [headers, fileData] = filePart.split('\r\n\r\n');
+            const filenameMatch = headers.match(/filename="(.+)"/);
+            const filename = filenameMatch ? filenameMatch[1] : `upload-${Date.now()}`;
 
-                upload.single('image')(fakeRequest, fakeResponse, (err) => {
-                    if (err) {
-                        reject({
-                            statusCode: 500,
-                            body: JSON.stringify({ error: 'File upload error', details: err.message }),
-                        });
-                    }
-                });
-            });
+            const filePath = path.join(__dirname, 'public', 'images', filename);
+            fs.writeFileSync(filePath, fileData.split('\r\n--')[0], { encoding: 'binary' });
+
+            return {
+                statusCode: 200,
+                body: JSON.stringify({ message: 'File uploaded successfully', filePath }),
+            };
         }
 
         // Если маршрут не найден
@@ -116,10 +98,10 @@ export async function handler(event, context) {
             body: JSON.stringify({ error: 'Endpoint not found' }),
         };
     } catch (error) {
-        console.error('Database query error:', error);
+        console.error('Error:', error);
         return {
             statusCode: 500,
-            body: JSON.stringify({ error: 'Database query error' }),
+            body: JSON.stringify({ error: 'Server error', details: error.message }),
         };
     } finally {
         await client.end();
