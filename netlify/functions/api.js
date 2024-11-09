@@ -1,6 +1,7 @@
 import { Client } from 'pg';
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
 
 const key = process.env.NEON_PASSWORD;
 
@@ -18,29 +19,21 @@ export async function handler(event, context) {
     try {
         await client.connect();
 
-        let query;
-
-        // 1. GET /items
         if (method === 'GET' && pathUrl.endsWith('/items')) {
+            // Получение элементов из базы данных
             const id = event.queryStringParameters?.id;
-            if (id) {
-                query = {
-                    text: 'SELECT * FROM items WHERE id = $1',
-                    values: [id],
-                };
-            } else {
-                query = 'SELECT * FROM items';
-            }
+            const query = id 
+                ? { text: 'SELECT * FROM items WHERE id = $1', values: [id] }
+                : 'SELECT * FROM items';
             const res = await client.query(query);
             return {
                 statusCode: 200,
                 body: JSON.stringify(res.rows),
             };
-        }
-
-        // 2. POST /items
-        if (method === 'POST' && pathUrl.endsWith('/items')) {
+        } else if (method === 'POST' && pathUrl.endsWith('/items')) {
+            // Создание нового элемента
             const { item, cost } = JSON.parse(event.body);
+            const link = `/public/images/${item}`; // Путь к изображению
 
             if (!item || !cost) {
                 return {
@@ -49,54 +42,79 @@ export async function handler(event, context) {
                 };
             }
 
-            const link = `https://funny-fudge-ddda7b.netlify.app/public/images/${item}`;
-
-            query = {
+            const query = {
                 text: 'INSERT INTO items (item, cost, link) VALUES ($1, $2, $3) RETURNING *',
                 values: [item, cost, link],
             };
-
             const res = await client.query(query);
             return {
                 statusCode: 201,
                 body: JSON.stringify(res.rows[0]),
             };
-        }
-
-        // 3. POST /upload-image
-        if (method === 'POST' && pathUrl.endsWith('/upload-image')) {
-            const boundary = event.headers['content-type'].split('boundary=')[1];
-            const bodyBuffer = Buffer.from(event.body, 'base64');
-            
-            // Простая обработка multipart/form-data
-            const parts = bodyBuffer.toString().split(`--${boundary}`);
-            const filePart = parts.find(part => part.includes('Content-Disposition: form-data; name="image";'));
-            
-            if (!filePart) {
+        } else if (method === 'POST' && pathUrl.endsWith('/upload-image')) {
+            // Простая обработка загрузки файла без использования сторонних библиотек
+            const contentType = event.headers['content-type'] || event.headers['Content-Type'];
+            if (!contentType.includes('multipart/form-data')) {
                 return {
                     statusCode: 400,
-                    body: JSON.stringify({ error: 'No image file found in request' }),
+                    body: JSON.stringify({ error: 'Invalid content type' }),
                 };
             }
 
-            const [headers, fileData] = filePart.split('\r\n\r\n');
-            const filenameMatch = headers.match(/filename="(.+)"/);
-            const filename = filenameMatch ? filenameMatch[1] : `upload-${Date.now()}`;
+            // Определяем границу разделителя
+            const boundary = contentType.split('boundary=')[1];
+            if (!boundary) {
+                return {
+                    statusCode: 400,
+                    body: JSON.stringify({ error: 'Boundary not found' }),
+                };
+            }
 
-            const filePath = path.join(__dirname, 'public', 'images', filename);
-            fs.writeFileSync(filePath, fileData.split('\r\n--')[0], { encoding: 'binary' });
+            // Разбираем тело запроса
+            const body = Buffer.from(event.body, 'base64').toString('binary');
+            const parts = body.split(`--${boundary}`);
+            let fileData = null;
+            let fileName = 'uploaded_image';
+
+            parts.forEach((part) => {
+                if (part.includes('Content-Disposition')) {
+                    if (part.includes('filename=')) {
+                        const match = part.match(/filename="(.+?)"/);
+                        if (match) {
+                            fileName = match[1];
+                        }
+                        const fileContentIndex = part.indexOf('\r\n\r\n') + 4;
+                        fileData = part.substring(fileContentIndex, part.length - 2); // Отбрасываем завершающие символы
+                    }
+                }
+            });
+
+            if (!fileData) {
+                return {
+                    statusCode: 400,
+                    body: JSON.stringify({ error: 'File data not found' }),
+                };
+            }
+
+            // Сохраняем файл
+            const tempDir = path.join(os.tmpdir(), 'uploads');
+            if (!fs.existsSync(tempDir)) {
+                fs.mkdirSync(tempDir);
+            }
+
+            const filePath = path.join(tempDir, fileName);
+            fs.writeFileSync(filePath, fileData, 'binary');
 
             return {
                 statusCode: 200,
                 body: JSON.stringify({ message: 'File uploaded successfully', filePath }),
             };
+        } else {
+            return {
+                statusCode: 404,
+                body: JSON.stringify({ error: 'Endpoint not found' }),
+            };
         }
-
-        // Если маршрут не найден
-        return {
-            statusCode: 404,
-            body: JSON.stringify({ error: 'Endpoint not found' }),
-        };
     } catch (error) {
         console.error('Error:', error);
         return {
