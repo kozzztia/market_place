@@ -21,13 +21,16 @@ exports.handler = async (event, context) => {
         let query;
         
         if (method === 'GET' && path.endsWith('/items')) {
+            // Получение всех элементов
             query = 'SELECT * FROM items';
         } else if (method === 'GET' && id) {
+            // Получение элемента по id
             query = {
                 text: 'SELECT * FROM items WHERE id = $1',
                 values: [id],
             };
         } else if (method === 'PUT' && id) {
+            // Обновление счетчика по id
             const { counter } = JSON.parse(event.body);
 
             if (counter === undefined || isNaN(counter)) {
@@ -42,21 +45,22 @@ exports.handler = async (event, context) => {
                 values: [counter, id],
             };
         } else if (method === 'POST' && path.endsWith('/items')) {
+            // Создание нового элемента
+            const { item, description, count, link, icon } = JSON.parse(event.body);
 
-            const { item, description, icon, count, link } = JSON.parse(event.body);
-
-            if (!item || !description || !icon || !count || !link ) {
+            if (!item || !description || !count || !link || !icon) {
                 return {
                     statusCode: 400,
-                    body: JSON.stringify({ error: 'Missing required fields: item, description, and count' }),
+                    body: JSON.stringify({ error: 'Missing required fields: item, description, count, link, and icon' }),
                 };
             }
 
             query = {
-                text: 'INSERT INTO items (item, description, count, link) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-                values: [item, description, icon, count, link],
+                text: 'INSERT INTO items (item, description, count, link, icon) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+                values: [item, description, count, link, icon],
             };
         } else if (method === 'DELETE' && id) {
+            // Удаление элемента по id
             query = {
                 text: 'DELETE FROM items WHERE id = $1 RETURNING *',
                 values: [id],
@@ -97,3 +101,4 @@ exports.handler = async (event, context) => {
         await client.end();
     }
 };
+
