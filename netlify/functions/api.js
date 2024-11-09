@@ -5,9 +5,8 @@ exports.handler = async (event, context) => {
     const path = event.path;
     const method = event.httpMethod;
     
-    // Extracting the item ID directly from the path
-    const idMatch = path.match(/\/items\/(\d+)/);  // This will match /items/1, /items/2, etc.
-    const id = idMatch ? idMatch[1] : null; // If the ID is in the path, capture it; otherwise, it's null
+    const idMatch = path.match(/\/items\/(\d+)/);  
+    const id = idMatch ? idMatch[1] : null; 
 
     const dbConfig = {
         connectionString: `postgresql://items_owner:${key}@ep-round-frost-a813d3a2.eastus2.azure.neon.tech/items?sslmode=require`,
@@ -22,20 +21,31 @@ exports.handler = async (event, context) => {
         let query;
         
         if (method === 'GET' && path.endsWith('/items')) {
-            // GET /items - Retrieve all items
             query = 'SELECT * FROM items';
         } else if (method === 'GET' && id) {
-            // GET /items/{id} - Retrieve a specific item by ID
             query = {
                 text: 'SELECT * FROM items WHERE id = $1',
                 values: [id],
             };
+        } else if (method === 'PUT' && id) {
+            const { counter } = JSON.parse(event.body);
+
+            if (counter === undefined || isNaN(counter)) {
+                return {
+                    statusCode: 400,
+                    body: JSON.stringify({ error: 'Missing or invalid counter value' }),
+                };
+            }
+
+            query = {
+                text: 'UPDATE items SET count = $1 WHERE id = $2 RETURNING *',
+                values: [counter, id],
+            };
         } else if (method === 'POST' && path.endsWith('/items')) {
-            // POST /items - Create a new item
+
             const { item, description, count, link } = JSON.parse(event.body);
 
-            // Check for required fields
-            if (!item || !description || !count) {
+            if (!item || !description || !count || !link) {
                 return {
                     statusCode: 400,
                     body: JSON.stringify({ error: 'Missing required fields: item, description, and count' }),
@@ -44,7 +54,12 @@ exports.handler = async (event, context) => {
 
             query = {
                 text: 'INSERT INTO items (item, description, count, link) VALUES ($1, $2, $3, $4) RETURNING *',
-                values: [item, description, count, link || null], // link is optional
+                values: [item, description, count, link],
+            };
+        } else if (method === 'DELETE' && id) {
+            query = {
+                text: 'DELETE FROM items WHERE id = $1 RETURNING *',
+                values: [id],
             };
         } else {
             return {
@@ -55,7 +70,19 @@ exports.handler = async (event, context) => {
 
         const res = await client.query(query);
 
-        // Return the results based on the query
+        if (method === 'DELETE') {
+            if (res.rowCount === 0) {
+                return {
+                    statusCode: 404,
+                    body: JSON.stringify({ error: 'Item not found' }),
+                };
+            }
+            return {
+                statusCode: 200,
+                body: JSON.stringify({ message: `Item with id ${id} deleted successfully` }),
+            };
+        }
+
         return {
             statusCode: 200,
             body: JSON.stringify(res.rows),
