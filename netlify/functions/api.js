@@ -1,7 +1,6 @@
 import { Client } from 'pg';
 import fs from 'fs';
 import path from 'path';
-import os from 'os';
 
 const key = process.env.NEON_PASSWORD;
 
@@ -96,18 +95,20 @@ export async function handler(event, context) {
                 };
             }
 
-            // Сохраняем файл
-            const tempDir = path.join(os.tmpdir(), 'uploads');
-            if (!fs.existsSync(tempDir)) {
-                fs.mkdirSync(tempDir);
+            // Сохраняем файл в netlify/public/images
+            const imagesDir = path.join(__dirname, 'public', 'images'); // Убедитесь, что public/images существует в проекте Netlify
+            if (!fs.existsSync(imagesDir)) {
+                fs.mkdirSync(imagesDir, { recursive: true });
             }
 
-            const filePath = path.join(tempDir, fileName);
+            const filePath = path.join(imagesDir, fileName);
             fs.writeFileSync(filePath, fileData, 'binary');
+
+            const fileLink = `https://funny-fudge-ddda7b.netlify.app/public/images/${fileName}`;
 
             return {
                 statusCode: 200,
-                body: JSON.stringify({ message: 'File uploaded successfully', filePath }),
+                body: JSON.stringify({ message: 'File uploaded successfully', filePath: fileLink }),
             };
         } else {
             return {
