@@ -47,7 +47,7 @@ exports.handler = async (event, context) => {
         } else if (method === 'POST' && path.endsWith('/items')) {
             // Создание нового элемента
             const { item, description, count, icon } = JSON.parse(event.body);
-            const link = `${path}/public/images/${id}.jpg`;
+            const link = `https://funny-fudge-ddda7b.netlify.app/public/images/${item.replace(/\s+/g, '-').toLowerCase()}.jpg`;
 
             if (!item || !description || !count || !link || !icon) {
                 return {
