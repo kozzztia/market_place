@@ -46,7 +46,8 @@ exports.handler = async (event, context) => {
             };
         } else if (method === 'POST' && path.endsWith('/items')) {
             // Создание нового элемента
-            const { item, description, count, link, icon } = JSON.parse(event.body);
+            const { item, description, count, icon } = JSON.parse(event.body);
+            const link = `${path}/public/images/${id}.jpg`;
 
             if (!item || !description || !count || !link || !icon) {
                 return {
