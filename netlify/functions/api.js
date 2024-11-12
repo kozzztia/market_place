@@ -4,7 +4,6 @@ const key = process.env.NEON_PASSWORD;
 exports.handler = async (event, context) => {
     const path = event.path;
     const method = event.httpMethod;
-    
     const idMatch = path.match(/\/items\/(\d+)/);  
     const id = idMatch ? idMatch[1] : null; 
 
@@ -22,43 +21,52 @@ exports.handler = async (event, context) => {
         
         if (method === 'GET' && path.endsWith('/items')) {
             // Получение всех элементов
-            query = 'SELECT * FROM items';
+            query = 'SELECT itemName, description, price, icon, count FROM items';
         } else if (method === 'GET' && id) {
             // Получение элемента по id
             query = {
-                text: 'SELECT * FROM items WHERE id = $1',
+                text: 'SELECT itemName, description, price, icon, count FROM items WHERE id = $1',
                 values: [id],
             };
         } else if (method === 'PUT' && id) {
-            // Обновление счетчика по id
-            const { counter } = JSON.parse(event.body);
-
-            if (counter === undefined || isNaN(counter)) {
+            // Обновление счетчика или iswotch по id
+            const { counter, iswotch } = JSON.parse(event.body);
+            if (counter === undefined && iswotch === undefined) {
                 return {
                     statusCode: 400,
-                    body: JSON.stringify({ error: 'Missing or invalid counter value' }),
+                    body: JSON.stringify({ error: 'Missing required field: counter or iswotch' }),
                 };
             }
-
-            query = {
-                text: 'UPDATE items SET count = $1 WHERE id = $2 RETURNING *',
-                values: [counter, id],
-            };
+            if (counter !== undefined && !isNaN(counter)) {
+                query = {
+                    text: 'UPDATE items SET count = $1 WHERE id = $2 RETURNING *',
+                    values: [counter, id],
+                };
+            } else if (iswotch !== undefined) {
+                query = {
+                    text: 'UPDATE items SET iswotch = $1 WHERE id = $2 RETURNING *',
+                    values: [iswotch, id],
+                };
+            } else {
+                return {
+                    statusCode: 400,
+                    body: JSON.stringify({ error: 'Invalid or missing value for counter or iswotch' }),
+                };
+            }
         } else if (method === 'POST' && path.endsWith('/items')) {
             // Создание нового элемента
-            const { item, description, count, icon } = JSON.parse(event.body);
-            const link = `https://funny-fudge-ddda7b.netlify.app/public/images/${item.replace(/\s+/g, '-').toLowerCase()}.jpg`;
-
-            if (!item || !description || !count || !link || !icon) {
+            const { item, description, country, gender, age, color, price, icon, count, link, iswotch } = JSON.parse(event.body);
+            
+            if (!item || !description || !country || !gender || !age || !color || !price || !icon || !count || !link || !iswotch) {
                 return {
                     statusCode: 400,
-                    body: JSON.stringify({ error: 'Missing required fields: item, description, count, link, and icon' }),
+                    body: JSON.stringify({ error: 'Missing required fields: item, description, etc.' }),
                 };
             }
 
             query = {
-                text: 'INSERT INTO items (item, description, count, link, icon) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-                values: [item, description, count, link, icon],
+                text: 'INSERT INTO items (item, description, country, gender, age, color, price, icon, count, link, iswotch) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *',
+                values: [item, description, country, gender, age, color, price, icon, count, link, iswotch],
             };
         } else if (method === 'DELETE' && id) {
             // Удаление элемента по id
@@ -102,4 +110,5 @@ exports.handler = async (event, context) => {
         await client.end();
     }
 };
+
 
