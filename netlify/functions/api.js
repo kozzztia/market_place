@@ -78,7 +78,7 @@ exports.handler = async (event, context) => {
                 };
             }
             query = {
-                text: 'INSERT INTO items (item, description, country, gender, age, color, price, icon, count, link, iswotch) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *',
+                text: 'INSERT INTO items (itemName, description, country, gender, age, color, price, icon, count, link, iswotch) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *',
                 values: [itemName, description, country, gender, age, color, price, icon, count, link, iswotch],
             };
         } else if (method === 'DELETE' && id) {
