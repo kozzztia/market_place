@@ -30,17 +30,17 @@ exports.handler = async (event, context) => {
             };
         } else if (method === 'PUT' && id) {
             // Обновление счетчика или iswotch по id
-            const { counter, iswotch } = JSON.parse(event.body);
-            if (counter === undefined && iswotch === undefined) {
+            const { count, iswotch } = JSON.parse(event.body);
+            if (count === undefined && iswotch === undefined) {
                 return {
                     statusCode: 400,
                     body: JSON.stringify({ error: 'Missing required field: counter or iswotch' }),
                 };
             }
-            if (counter !== undefined && !isNaN(counter)) {
+            if (count !== undefined && !isNaN(count)) {
                 query = {
                     text: 'UPDATE items SET count = $1 WHERE id = $2 RETURNING *',
-                    values: [counter, id],
+                    values: [count, id],
                 };
             } else if (iswotch !== undefined) {
                 query = {
@@ -55,9 +55,9 @@ exports.handler = async (event, context) => {
             }
         } else if (method === 'POST' && path.endsWith('/items')) {
             // Создание нового элемента
-            const { item, description, country, gender, age, color, price, icon, count, link, iswotch } = JSON.parse(event.body);
+            const { itemName, description, country, gender, age, color, price, icon, count, link, iswotch } = JSON.parse(event.body);
             
-            if (!item || !description || !country || !gender || !age || !color || !price || !icon || !count || !link || !iswotch) {
+            if (!itemName || !description || !country || !gender || !age || !color || !price || !icon || !count || !link || !iswotch) {
                 return {
                     statusCode: 400,
                     body: JSON.stringify({ error: 'Missing required fields: item, description, etc.' }),
@@ -66,7 +66,7 @@ exports.handler = async (event, context) => {
 
             query = {
                 text: 'INSERT INTO items (item, description, country, gender, age, color, price, icon, count, link, iswotch) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *',
-                values: [item, description, country, gender, age, color, price, icon, count, link, iswotch],
+                values: [itemName, description, country, gender, age, color, price, icon, count, link, iswotch],
             };
         } else if (method === 'DELETE' && id) {
             // Удаление элемента по id
