@@ -25,7 +25,7 @@ exports.handler = async (event, context) => {
         } else if (method === 'GET' && id) {
             // Получение элемента по id
             query = {
-                text: 'SELECT itemName, description, price, icon, count FROM items WHERE id = $1',
+                text: 'SELECT * FROM items WHERE id = $1',
                 values: [id],
             };
         } else if (method === 'PUT' && id) {
