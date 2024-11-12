@@ -58,12 +58,25 @@ exports.handler = async (event, context) => {
             const { itemName, description, country, gender, age, color, price, icon, count, link, iswotch } = JSON.parse(event.body);
             
             if (!itemName || !description || !country || !gender || !age || !color || !price || !icon || !count || !link || !iswotch) {
+                const missingFields = [];
+            
+                if (!itemName) missingFields.push('itemName');
+                if (!description) missingFields.push('description');
+                if (!country) missingFields.push('country');
+                if (!gender) missingFields.push('gender');
+                if (!age) missingFields.push('age');
+                if (!color) missingFields.push('color');
+                if (!price) missingFields.push('price');
+                if (!icon) missingFields.push('icon');
+                if (!count) missingFields.push('count');
+                if (!link) missingFields.push('link');
+                if (!iswotch) missingFields.push('iswotch');
+            
                 return {
                     statusCode: 400,
-                    body: JSON.stringify({ error: 'Missing required fields: item, description, etc.' }),
+                    body: JSON.stringify({ error: `Missing required fields: ${missingFields.join(', ')}` }),
                 };
             }
-
             query = {
                 text: 'INSERT INTO items (item, description, country, gender, age, color, price, icon, count, link, iswotch) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *',
                 values: [itemName, description, country, gender, age, color, price, icon, count, link, iswotch],
