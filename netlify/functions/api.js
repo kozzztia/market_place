@@ -55,9 +55,9 @@ exports.handler = async (event, context) => {
             }
         } else if (method === 'POST' && path.endsWith('/items')) {
             // Создание нового элемента
-            const { itemName, description, country, gender, age, color, price, icon, count, link, iswotch } = JSON.parse(event.body);
+            const { itemName, description, country, gender, age, color, price, icon, count, link } = JSON.parse(event.body);
             
-            if (!itemName || !description || !country || !gender || !age || !color || !price || !icon || !count || !link || !iswotch) {
+            if (!itemName || !description || !country || !gender || !age || !color || !price || !icon || !count || !link) {
                 const missingFields = [];
             
                 if (!itemName) missingFields.push('itemName');
@@ -70,7 +70,6 @@ exports.handler = async (event, context) => {
                 if (!icon) missingFields.push('icon');
                 if (!count) missingFields.push('count');
                 if (!link) missingFields.push('link');
-                if (!iswotch) missingFields.push('iswotch');
             
                 return {
                     statusCode: 400,
@@ -79,7 +78,7 @@ exports.handler = async (event, context) => {
             }
             query = {
                 text: 'INSERT INTO items (itemName, description, country, gender, age, color, price, icon, count, link, iswotch) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *',
-                values: [itemName, description, country, gender, age, color, price, icon, count, link, iswotch],
+                values: [itemName, description, country, gender, age, color, price, icon, count, link, false],
             };
         } else if (method === 'DELETE' && id) {
             // Удаление элемента по id
