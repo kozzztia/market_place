@@ -28,7 +28,9 @@ exports.handler = async (event, context) => {
                 text: 'SELECT * FROM items WHERE id = $1',
                 values: [id],
             };
-        } else if (method === 'PUT' && id) {
+        } 
+        
+        if (method === 'PUT' && id) {
             // Обновление счетчика или iswotch по id
             const { count, iswotch } = JSON.parse(event.body);
             if (count === undefined && iswotch === undefined) {
@@ -53,65 +55,7 @@ exports.handler = async (event, context) => {
                     body: JSON.stringify({ error: 'Invalid or missing value for counter or iswotch' }),
                 };
             }
-        } else if (method === 'POST' && path.endsWith('/items')) {
-            // Создание нового элемента
-            const { itemName, description, country, gender, age, color, price, icon, count, link } = JSON.parse(event.body);
-            
-            if (!itemName || !description || !country || !gender || !age || !color || !price || !icon || !count || !link) {
-                const missingFields = [];
-            
-                if (!itemName) missingFields.push('itemName');
-                if (!description) missingFields.push('description');
-                if (!country) missingFields.push('country');
-                if (!gender) missingFields.push('gender');
-                if (!age) missingFields.push('age');
-                if (!color) missingFields.push('color');
-                if (!price) missingFields.push('price');
-                if (!icon) missingFields.push('icon');
-                if (!count) missingFields.push('count');
-                if (!link) missingFields.push('link');
-            
-                return {
-                    statusCode: 400,
-                    body: JSON.stringify({ error: `Missing required fields: ${missingFields.join(', ')}` }),
-                };
-            }
-            query = {
-                text: 'INSERT INTO items (itemName, description, country, gender, age, color, price, icon, count, link, iswotch) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *',
-                values: [itemName, description, country, gender, age, color, price, icon, count, link, false],
-            };
-        } else if (method === 'DELETE' && id) {
-            // Удаление элемента по id
-            query = {
-                text: 'DELETE FROM items WHERE id = $1 RETURNING *',
-                values: [id],
-            };
-        } else {
-            return {
-                statusCode: 404,
-                body: JSON.stringify({ error: 'Endpoint not found' }),
-            };
-        }
-
-        const res = await client.query(query);
-
-        if (method === 'DELETE') {
-            if (res.rowCount === 0) {
-                return {
-                    statusCode: 404,
-                    body: JSON.stringify({ error: 'Item not found' }),
-                };
-            }
-            return {
-                statusCode: 200,
-                body: JSON.stringify({ message: `Item with id ${id} deleted successfully` }),
-            };
-        }
-
-        return {
-            statusCode: 200,
-            body: JSON.stringify(res.rows),
-        };
+        } 
     } catch (error) {
         console.error('Database query error:', error);
         return {
