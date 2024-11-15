@@ -37,7 +37,7 @@ exports.handler = async (event, context) => {
                         text: 'SELECT count FROM items WHERE id = $1',
                         values: [id],
                     };
-                } else {
+                } else if (path.match(/\/item\/\d+$/)) {
                     // Fetch item by id
                     query = {
                         text: 'SELECT * FROM items WHERE id = $1',
