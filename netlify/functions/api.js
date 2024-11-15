@@ -4,7 +4,7 @@ const key = process.env.NEON_PASSWORD;
 exports.handler = async (event, context) => {
     const path = event.path;
     const method = event.httpMethod;
-    const idMatch = path.match(/\/items\/(\d+)/);  
+    const idMatch = path.match(/\/(\d+)$/);
     const id = idMatch ? idMatch[1] : null; 
 
     const dbConfig = {
@@ -53,13 +53,13 @@ exports.handler = async (event, context) => {
                     body: JSON.stringify({ error: 'Invalid or missing value for count or iswotch' }),
                 };
             }
-        } else if (method === 'GET' && id && path.match(/\/iswotch\/\d+/)) {
+        } else if (method === 'GET' && path.match(/\/iswotch\/\d+$/)) {
             // Fetch iswotch by id
             query = {
                 text: 'SELECT iswotch FROM items WHERE id = $1',
                 values: [id],
             };
-        } else if (method === 'GET' && id && path.match(/\/count\/\d+/)) {
+        } else if (method === 'GET' && path.match(/\/count\/\d+$/))  {
             // Fetch count by id
             query = {
                 text: 'SELECT count FROM items WHERE id = $1',
