@@ -4,8 +4,8 @@ const key = process.env.NEON_PASSWORD;
 exports.handler = async (event, context) => {
     const path = event.path;
     const method = event.httpMethod;
-    const idMatch = path.match(/\/(\d+)$/);
-    const id = idMatch ? idMatch[1] : null; 
+    const idMatch = path.match(/\/(\d+)$/);  // Захватываем id из пути
+    const id = idMatch ? idMatch[1] : null;
 
     const dbConfig = {
         connectionString: `postgresql://items_owner:${key}@ep-round-frost-a813d3a2.eastus2.azure.neon.tech/items?sslmode=require`,
@@ -18,18 +18,35 @@ exports.handler = async (event, context) => {
         await client.connect();
 
         let query;
-        
-        if (method === 'GET' && path.endsWith('/items')) {
-            // Fetch all items
-            query = 'SELECT itemName, description, price, icon, count FROM items';
-        } else if (method === 'GET' && id) {
-            // Fetch item by id
-            query = {
-                text: 'SELECT * FROM items WHERE id = $1',
-                values: [id],
-            };
+
+        if (method === 'GET') {
+            // Все GET запросы
+            if (path.endsWith('/items')) {
+                // Fetch all items
+                query = 'SELECT itemName, description, price, icon, count FROM items';
+            } else if (id) {
+                if (path.match(/\/iswotch\/\d+$/)) {
+                    // Fetch iswotch by id
+                    query = {
+                        text: 'SELECT iswotch FROM items WHERE id = $1',
+                        values: [id],
+                    };
+                } else if (path.match(/\/count\/\d+$/)) {
+                    // Fetch count by id
+                    query = {
+                        text: 'SELECT count FROM items WHERE id = $1',
+                        values: [id],
+                    };
+                } else {
+                    // Fetch item by id
+                    query = {
+                        text: 'SELECT * FROM items WHERE id = $1',
+                        values: [id],
+                    };
+                }
+            }
         } else if (method === 'PUT' && id) {
-            // Update count or iswotch by id
+            // Обработка PUT запросов
             const { count, iswotch } = JSON.parse(event.body);
             if (count === undefined && iswotch === undefined) {
                 return {
@@ -53,19 +70,7 @@ exports.handler = async (event, context) => {
                     body: JSON.stringify({ error: 'Invalid or missing value for count or iswotch' }),
                 };
             }
-        } else if (method === 'GET' && path.match(/\/iswotch\/\d+$/)) {
-            // Fetch iswotch by id
-            query = {
-                text: 'SELECT iswotch FROM items WHERE id = $1',
-                values: [id],
-            };
-        } else if (method === 'GET' && path.match(/\/count\/\d+$/))  {
-            // Fetch count by id
-            query = {
-                text: 'SELECT count FROM items WHERE id = $1',
-                values: [id],
-            };
-        }else {
+        } else {
             return {
                 statusCode: 404,
                 body: JSON.stringify({ error: 'Endpoint not found' }),
@@ -87,3 +92,4 @@ exports.handler = async (event, context) => {
         await client.end();
     }
 };
+
