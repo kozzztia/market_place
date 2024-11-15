@@ -8,7 +8,7 @@ exports.handler = async (event, context) => {
     const id = idMatch ? idMatch[1] : null;
 
     const dbConfig = {
-        connectionString: postgresql://items_owner:${key}@ep-round-frost-a813d3a2.eastus2.azure.neon.tech/items?sslmode=require,
+        connectionString: `postgresql://items_owner:${key}@ep-round-frost-a813d3a2.eastus2.azure.neon.tech/items?sslmode=require`,
         ssl: { rejectUnauthorized: false },
     };
 
@@ -91,4 +91,4 @@ exports.handler = async (event, context) => {
     } finally {
         await client.end();
     }
-}; 
+};
