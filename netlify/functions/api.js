@@ -53,13 +53,13 @@ exports.handler = async (event, context) => {
                     body: JSON.stringify({ error: 'Invalid or missing value for count or iswotch' }),
                 };
             }
-        } else if (method === 'GET' && id && path.includes('/iswotch/')) {
+        } else if (method === 'GET' && id && path.match(/\/iswotch\/\d+/)) {
             // Fetch iswotch by id
             query = {
                 text: 'SELECT iswotch FROM items WHERE id = $1',
                 values: [id],
             };
-        } else if (method === 'GET' && id && path.includes('/count/')) {
+        } else if (method === 'GET' && id && path.match(/\/count\/\d+/)) {
             // Fetch count by id
             query = {
                 text: 'SELECT count FROM items WHERE id = $1',
