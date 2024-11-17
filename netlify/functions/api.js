@@ -95,7 +95,7 @@ exports.handler = async (event, context) => {
                 row.link = row.link.split(',').map(url => url.trim());
             }
             if (row.color){
-                // Split the link string into an array of URLs
+                // Split the color string into an array of colors
                 row.color = row.color.split(',').map(url => url.trim());
             }
             return row;
