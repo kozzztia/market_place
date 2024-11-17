@@ -85,7 +85,12 @@ exports.handler = async (event, context) => {
             if (row.details) {
                 try {
                     // Parse details as JSON if applicable
-                    row.details = JSON.parse(row.details);
+                    row.details = JSON.parse(row.details).map(({ title, value }) => {
+                        return {
+                            title,
+                            value,
+                        };
+                    });
                 } catch (error) {
                     console.warn('Failed to parse details field:', error);
                 }
