@@ -23,7 +23,7 @@ exports.handler = async (event, context) => {
             // Все GET запросы
             if (path.endsWith('/items')) {
                 // Fetch all items
-                query = 'SELECT itemName, description, price, icon, count FROM items';
+                query = 'SELECT name, description, price, icon, count FROM items';
             } else if (id) {
                 if (path.match(/\/iswotch\/\d+$/)) {
                     // Fetch iswotch by id
