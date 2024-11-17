@@ -76,11 +76,24 @@ exports.handler = async (event, context) => {
                 body: JSON.stringify({ error: 'Endpoint not found' }),
             };
         }
-
-        const res = await client.query(query);
+    const responseRows = res.rows.map(row => {
+        if (row.details) {
+            try {
+                // Parse details as JSON if applicable
+                row.details = JSON.parse(row.details);
+            } catch (error) {
+                console.warn('Failed to parse details field:', error);
+            }
+        }
+        if (row.link) {
+            // Split the link string into an array of URLs
+            row.link = row.link.split(',').map(url => url.trim());
+        }
+        return row;
+        });
         return {
             statusCode: 200,
-            body: JSON.stringify(res.rows),
+            body: JSON.stringify(responseRows),
         };
     } catch (error) {
         console.error('Database query error:', error);
@@ -92,3 +105,4 @@ exports.handler = async (event, context) => {
         await client.end();
     }
 };
+
