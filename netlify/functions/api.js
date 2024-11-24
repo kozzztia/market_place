@@ -26,7 +26,7 @@ exports.handler = async (event, context) => {
                 query = 'SELECT id, name, description, price, icon, count, color FROM items';
             } else if(path.endsWith('/categories')) {
                 // Fetch all categories
-                query = 'SELECT DISTINCT category FROM item';
+                query = 'SELECT DISTINCT category FROM items';
             }else if (id) {
                 if (path.match(/\/iswotch\/\d+$/)) {
                     // Fetch iswotch by id
