@@ -4,7 +4,7 @@ const key = process.env.NEON_PASSWORD;
 exports.handler = async (event, context) => {
     const path = event.path;
     const method = event.httpMethod;
-    const idMatch = path.match(/\/(\d+)$/);  // Захватываем id из пути
+    const idMatch = path.match(/\/(\d+)$/); // Захватываем id из пути
     const id = idMatch ? idMatch[1] : null;
 
     const dbConfig = {
@@ -20,28 +20,27 @@ exports.handler = async (event, context) => {
         let query;
 
         if (method === 'GET') {
-            // Все GET запросы
+            // Обработка GET-запросов
             if (path.endsWith('/items')) {
-                // Fetch all items
                 query = 'SELECT id, name, description, price, icon, count, color FROM items';
-            } else if(path.endsWith('/categories')) {
-                // Fetch all categories
+            } else if (path.endsWith('/categories')) {
                 query = 'SELECT DISTINCT category FROM items';
-            }else if (id) {
+            } else if (path.endsWith('/randomItem')) {
+                query = 'SELECT * FROM items ORDER BY RANDOM() LIMIT 1';
+            } else if (path.endsWith('/topThreeItem')) {
+                query = 'SELECT * FROM items ORDER BY rating DESC LIMIT 3';
+            } else if (id) {
                 if (path.match(/\/iswotch\/\d+$/)) {
-                    // Fetch iswotch by id
                     query = {
                         text: 'SELECT iswotch FROM items WHERE id = $1',
                         values: [id],
                     };
                 } else if (path.match(/\/count\/\d+$/)) {
-                    // Fetch count by id
                     query = {
                         text: 'SELECT count FROM items WHERE id = $1',
                         values: [id],
                     };
                 } else if (path.match(/\/item\/\d+$/)) {
-                    // Fetch item by id
                     query = {
                         text: 'SELECT * FROM items WHERE id = $1',
                         values: [id],
@@ -49,7 +48,7 @@ exports.handler = async (event, context) => {
                 }
             }
         } else if (method === 'PUT' && id) {
-            // Обработка PUT запросов
+            // Обработка PUT-запросов
             const { count, iswotch } = JSON.parse(event.body);
             if (count === undefined && iswotch === undefined) {
                 return {
@@ -87,19 +86,16 @@ exports.handler = async (event, context) => {
         const responseRows = res.rows.map(row => {
             if (row.details) {
                 try {
-                    // Parse details as JSON if applicable
                     row.details = JSON.parse(row.details);
                 } catch (error) {
                     console.warn('Failed to parse details field:', error);
                 }
             }
             if (row.link) {
-                // Split the link string into an array of URLs
                 row.link = row.link.split(',').map(url => url.trim());
             }
-            if (row.color){
-                // Split the color string into an array of colors
-                row.color = row.color.split(',').map(url => url.trim());
+            if (row.color) {
+                row.color = row.color.split(',').map(color => color.trim());
             }
             return row;
         });
@@ -109,7 +105,7 @@ exports.handler = async (event, context) => {
             headers: {
                 "Access-Control-Allow-Origin": "*",
                 "Content-Type": "application/json",
-            },    
+            },
             body: JSON.stringify(responseRows),
         };
     } catch (error) {
