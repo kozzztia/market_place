@@ -32,7 +32,7 @@ exports.handler = async (event, context) => {
 
         if (method === 'GET') {
             if (path.endsWith('/items')) {
-                query = 'SELECT id, name, description, price, icon, category, rating, company FROM items';
+                query = 'SELECT * FROM items';
             } else if (id) {
                 query = {
                     text: 'SELECT * FROM items WHERE id = $1',
