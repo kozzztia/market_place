@@ -22,7 +22,7 @@ exports.handler = async (event, context) => {
         if (method === 'GET') {
             // Обработка GET-запросов
             if (path.endsWith('/items')) {
-                query = 'SELECT id, name, description, price, icon, count, color FROM items';
+                query = 'SELECT id, name, description, price, icon, category, rating , company FROM items';
             } else if (path.endsWith('/categories')) {
                 query = 'SELECT DISTINCT category FROM items';
             } else if (path.endsWith('/randomItem')) {
