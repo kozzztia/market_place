@@ -4,8 +4,8 @@ const key = process.env.NEON_PASSWORD;
 exports.handler = async (event, context) => {
     const path = event.path;
     const method = event.httpMethod;
-    const idMatch = path.match(/\/(\d+)$/); // Захватываем id из пути
-    const id = idMatch ? idMatch[1] : null;
+    const idMatch = path.match(/\/(\d+)$/);
+    const id = idMatch ? parseInt(idMatch[1], 10) : null;
 
     const dbConfig = {
         connectionString: `postgresql://items_owner:${key}@ep-round-frost-a813d3a2.eastus2.azure.neon.tech/items?sslmode=require`,
@@ -14,75 +14,47 @@ exports.handler = async (event, context) => {
 
     const client = new Client(dbConfig);
 
+    if (method === 'OPTIONS') {
+        return {
+            statusCode: 200,
+            headers: {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, PUT, POST, DELETE, OPTIONS",
+                "Access-Control-Allow-Headers": "Content-Type",
+            },
+        };
+    }
+
     try {
         await client.connect();
 
         let query;
 
         if (method === 'GET') {
-            // Обработка GET-запросов
             if (path.endsWith('/items')) {
-                query = 'SELECT id, name, description, price, icon, category, rating , company FROM items';
-            } else if (path.endsWith('/categories')) {
-                query = 'SELECT DISTINCT category FROM items';
-            } else if (path.endsWith('/randomItem')) {
-                query = 'SELECT * FROM items ORDER BY RANDOM() LIMIT 1';
-            } else if (path.endsWith('/topThreeItem')) {
-                query = 'SELECT * FROM items ORDER BY rating DESC LIMIT 3';
+                query = 'SELECT id, name, description, price, icon, category, rating, company FROM items';
             } else if (id) {
-                if (path.match(/\/iswotch\/\d+$/)) {
-                    query = {
-                        text: 'SELECT iswotch FROM items WHERE id = $1',
-                        values: [id],
-                    };
-                } else if (path.match(/\/count\/\d+$/)) {
-                    query = {
-                        text: 'SELECT count FROM items WHERE id = $1',
-                        values: [id],
-                    };
-                } else if (path.match(/\/item\/\d+$/)) {
-                    query = {
-                        text: 'SELECT * FROM items WHERE id = $1',
-                        values: [id],
-                    };
-                }
-            }
-        } else if (method === 'PUT' && id) {
-            // Обработка PUT-запросов
-            const { count, iswotch } = JSON.parse(event.body);
-            if (count === undefined && iswotch === undefined) {
-                return {
-                    statusCode: 400,
-                    body: JSON.stringify({ error: 'Missing required field: count or iswotch' }),
-                };
-            }
-            if (count !== undefined && !isNaN(count)) {
                 query = {
-                    text: 'UPDATE items SET count = $1 WHERE id = $2 RETURNING *',
-                    values: [count, id],
-                };
-            } else if (iswotch !== undefined) {
-                query = {
-                    text: 'UPDATE items SET iswotch = $1 WHERE id = $2 RETURNING *',
-                    values: [iswotch, id],
+                    text: 'SELECT * FROM items WHERE id = $1',
+                    values: [id],
                 };
             } else {
-                return {
-                    statusCode: 400,
-                    body: JSON.stringify({ error: 'Invalid or missing value for count or iswotch' }),
-                };
+                return { statusCode: 404, body: JSON.stringify({ error: 'Endpoint not found' }) };
             }
         } else {
+            return { statusCode: 404, body: JSON.stringify({ error: 'Method not allowed' }) };
+        }
+
+        const res = await client.query(query);
+
+        if (!res.rows.length) {
             return {
                 statusCode: 404,
-                body: JSON.stringify({ error: 'Endpoint not found' }),
+                headers: { "Access-Control-Allow-Origin": "*" },
+                body: JSON.stringify({ error: 'Data not found' }),
             };
         }
 
-        // Выполнение запроса
-        const res = await client.query(query);
-
-        // Обработка результатов запроса
         const responseRows = res.rows.map(row => {
             if (row.details) {
                 try {
@@ -91,12 +63,8 @@ exports.handler = async (event, context) => {
                     console.warn('Failed to parse details field:', error);
                 }
             }
-            if (row.link) {
-                row.link = row.link.split(',').map(url => url.trim());
-            }
-            if (row.color) {
-                row.color = row.color.split(',').map(color => color.trim());
-            }
+            if (row.link) row.link = row.link.split(',').map(url => url.trim());
+            if (row.color) row.color = row.color.split(',').map(color => color.trim());
             return row;
         });
 
@@ -112,7 +80,8 @@ exports.handler = async (event, context) => {
         console.error('Database query error:', error);
         return {
             statusCode: 500,
-            body: JSON.stringify({ error: 'Database query error' }),
+            headers: { "Access-Control-Allow-Origin": "*" },
+            body: JSON.stringify({ error: 'Internal server error' }),
         };
     } finally {
         await client.end();
